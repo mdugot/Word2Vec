@@ -11,9 +11,9 @@ class TestGen:
             context = {n}
             if n > 0:
                 context.add(1)
-            for f in range(1, n//2):
+            for f in range(1, n//2 + 1):
                 if n % f == 0:
-                    context = context.union(self.contexts[f])
+                    context.add(f)
             self.contexts.append(context)
 
 
@@ -26,6 +26,32 @@ class TestGen:
             for c in self.contexts[n]:
                 targets[idx, c] = 1.
         return torch.tensor(inputs, device='cuda', dtype=torch.float), torch.tensor(targets, device='cuda', dtype=torch.float)
+
+    def negative_sampling(self, negatives_size=20):
+        n = np.random.randint(self.dict_length)
+        print(f'value : {n}')
+        inputs = np.zeros([self.dict_length])
+        inputs[n] = 1.
+        targets = []
+        for c_idx, c in enumerate(self.contexts[n]):
+            print(f'-context : {c}')
+            targets.append(np.zeros([self.dict_length]))
+            targets[c_idx][c] = 1.
+        all_negs = []
+        negatives = []
+        for n_idx in range(negatives_size):
+            neg = np.random.randint(self.dict_length)
+            while neg == n or neg in self.contexts[n] or neg in all_negs:
+                neg = np.random.randint(self.dict_length)
+            print(f'-negative : {neg}')
+            all_negs.append(neg)
+            negatives.append(np.zeros([self.dict_length]))
+            negatives[n_idx][neg] = 1.
+        return (
+            torch.tensor(inputs, device='cuda', dtype=torch.float),
+            torch.tensor(targets, device='cuda', dtype=torch.float),
+            torch.tensor(negatives, device='cuda', dtype=torch.float)
+        )
 
     def __len__(self):
         return self.dict_length
