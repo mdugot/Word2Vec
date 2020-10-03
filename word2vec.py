@@ -13,23 +13,37 @@ class Word2Vec(nn.Module):
 
     def __init__(self, dict_length, latent_space=7):
         super().__init__()
-        self.encode = nn.Linear(dict_length, latent_space)
-        self.decode = nn.Linear(latent_space, dict_length)
+        self.encode_inputs = nn.Linear(dict_length, latent_space)
+        self.encode_targets = nn.Linear(dict_length, latent_space)
 
     def forward(self, x):
-        return torch.sigmoid(self.decode(self.encode(x)))
+        return self.encode_inputs(x)
+
+    def forward_targets(self, x):
+        return self.encode_targets(x)
 
     def latent_space(self, x):
-        return self.encode(x).detach().cpu().numpy()
+        return self(x).detach().cpu().numpy()
+
+
+class NegativeSamplingLoss(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, input_vectors, target_vectors, negative_vectors):
+        target_loss = -torch.sum(torch.log(torch.sigmoid(target_vectors.matmul(input_vectors.T))))
+        negative_loss = -torch.sum(torch.log(torch.sigmoid(-negative_vectors.matmul(input_vectors.T))))
+        return target_loss + negative_loss
 
 
 
 print('Create network')
-data = TestGen()
-net = Word2Vec(len(data))
+data = TestGen(dict_length=100)
+net = Word2Vec(len(data), latent_space=5)
 net.to('cuda')
-optimizer = optim.SGD(net.parameters(), lr=0.0002)
-criterion = nn.MSELoss(reduction='sum')
+optimizer = optim.Adam(net.parameters(), lr=0.01)
+criterion = NegativeSamplingLoss()
 print('Prepare data')
 analyser = ReduceAnalyser(words=list(range(100)))
 # analyser = ReduceAnalyser(words=[
@@ -52,12 +66,13 @@ for e in range(epoch):
     running_loss = []
     for b in tqdm(range(number_batch)):
         optimizer.zero_grad()
-        inputs, targets = data.batch(batch_size)
-        outputs = net(inputs)
-        loss = criterion(outputs, targets)
+        inputs, targets, negatives = data.negative_sampling(negatives_size=20)
+        input_vectors = net(inputs)
+        target_vectors = net.forward_targets(inputs)
+        negative_vectors = net.forward_targets(negatives)
+        loss = criterion(input_vectors, target_vectors, negative_vectors)
         running_loss.append(loss.item())
         loss.backward()
         optimizer.step()
     print(f'Loss {np.mean(running_loss)}')
     analyser.draw(data, net)
-

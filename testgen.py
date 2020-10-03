@@ -16,7 +16,6 @@ class TestGen:
                     context.add(f)
             self.contexts.append(context)
 
-
     def batch(self, batch_size):
         inputs = np.zeros([batch_size, self.dict_length])
         targets = np.zeros([batch_size, self.dict_length])
@@ -27,14 +26,14 @@ class TestGen:
                 targets[idx, c] = 1.
         return torch.tensor(inputs, device='cuda', dtype=torch.float), torch.tensor(targets, device='cuda', dtype=torch.float)
 
-    def negative_sampling(self, negatives_size=20):
+    def negative_sampling(self, negatives_size=10):
         n = np.random.randint(self.dict_length)
-        print(f'value : {n}')
-        inputs = np.zeros([self.dict_length])
-        inputs[n] = 1.
+        # print(f'value : {n}')
+        inputs = np.zeros([1, self.dict_length])
+        inputs[0, n] = 1.
         targets = []
         for c_idx, c in enumerate(self.contexts[n]):
-            print(f'-context : {c}')
+            # print(f'-context : {c}')
             targets.append(np.zeros([self.dict_length]))
             targets[c_idx][c] = 1.
         all_negs = []
@@ -43,7 +42,7 @@ class TestGen:
             neg = np.random.randint(self.dict_length)
             while neg == n or neg in self.contexts[n] or neg in all_negs:
                 neg = np.random.randint(self.dict_length)
-            print(f'-negative : {neg}')
+            # print(f'-negative : {neg}')
             all_negs.append(neg)
             negatives.append(np.zeros([self.dict_length]))
             negatives[n_idx][neg] = 1.
