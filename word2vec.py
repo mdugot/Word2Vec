@@ -13,8 +13,8 @@ class Word2Vec(nn.Module):
 
     def __init__(self, dict_length, latent_space=7):
         super().__init__()
-        self.encode_inputs = nn.Linear(dict_length, latent_space)
-        self.encode_targets = nn.Linear(dict_length, latent_space)
+        self.encode_inputs = nn.Linear(dict_length, latent_space, bias=False)
+        self.encode_targets = nn.Linear(dict_length, latent_space, bias=False)
 
     def forward(self, x):
         return self.encode_inputs(x)
@@ -24,6 +24,11 @@ class Word2Vec(nn.Module):
 
     def latent_space(self, x):
         return self(x).detach().cpu().numpy()
+
+    def hist(self, word, targets):
+        word_vector = self(word)
+        target_vectors = self.forward_targets(targets)
+        return -torch.log(torch.sigmoid(target_vectors.matmul(word_vector.T))).reshape([-1]).detach().cpu().numpy()
 
 
 class NegativeSamplingLoss(nn.Module):
@@ -40,12 +45,22 @@ class NegativeSamplingLoss(nn.Module):
 
 print('Create network')
 data = TestGen(dict_length=100)
-net = Word2Vec(len(data), latent_space=5)
+net = Word2Vec(len(data), latent_space=10)
 net.to('cuda')
-optimizer = optim.Adam(net.parameters(), lr=0.01)
+optimizer = optim.Adam(net.parameters(), lr=0.001)
 criterion = NegativeSamplingLoss()
 print('Prepare data')
-analyser = ReduceAnalyser(words=list(range(100)))
+analyser = ReduceAnalyser(
+    pca_words=list(range(100)),
+    hist_table={
+        21: [3, 7, 2, 5, 11],
+        99: [3, 7, 2, 5, 11],
+        32: [3, 7, 2, 5, 11],
+        61: [3, 7, 2, 5, 11],
+        50: [3, 7, 2, 5, 11],
+        35: [3, 7, 2, 5, 11],
+        24: [3, 7, 2, 5, 11]
+})
 # analyser = ReduceAnalyser(words=[
 #     40, 44, 80, 88, 
 #     19, 61, 97,
@@ -68,7 +83,7 @@ for e in range(epoch):
         optimizer.zero_grad()
         inputs, targets, negatives = data.negative_sampling(negatives_size=20)
         input_vectors = net(inputs)
-        target_vectors = net.forward_targets(inputs)
+        target_vectors = net.forward_targets(targets)
         negative_vectors = net.forward_targets(negatives)
         loss = criterion(input_vectors, target_vectors, negative_vectors)
         running_loss.append(loss.item())

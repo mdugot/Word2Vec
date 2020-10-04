@@ -14,6 +14,7 @@ class TestGen:
             for f in range(1, n//2 + 1):
                 if n % f == 0:
                     context.add(f)
+            print(f'{n} -> {context}')
             self.contexts.append(context)
 
     def batch(self, batch_size):
@@ -56,6 +57,8 @@ class TestGen:
         return self.dict_length
 
     def __call__(self, words):
+        if not isinstance(words, list):
+            words = [words]
         vectors = np.zeros([len(words), len(self)])
         for idx, word in enumerate(words):
             n = int(word)
