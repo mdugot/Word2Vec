@@ -2,11 +2,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
 
 from testgen import TestGen
 from reduce_analyser import ReduceAnalyser
+from data import NLPLoader, WikiData
 
 
 class Word2Vec(nn.Module):
@@ -44,50 +46,43 @@ class NegativeSamplingLoss(nn.Module):
 
 
 print('Create network')
-data = TestGen(dict_length=100)
-net = Word2Vec(len(data), latent_space=10)
+# data = TestGen(dict_length=100, negatives_size=20)
+data = WikiData()
+loader = NLPLoader(data, shuffle=False, batch_size=100)
+net = Word2Vec(data.dict_length, latent_space=10)
 net.to('cuda')
-optimizer = optim.Adam(net.parameters(), lr=0.001)
+optimizer = optim.Adam(net.parameters(), lr=0.01)
 criterion = NegativeSamplingLoss()
 print('Prepare data')
 analyser = ReduceAnalyser(
-    pca_words=list(range(100)),
+    pca_words=['france', 'japan', 'bread', 'farm', 'factory', 'bicycle', 'paris', 'england', 'tokyo', 'wine', 'cheese', 'motor', 'rice', 'robot', 'electricity', 'car'],
     hist_table={
-        21: [3, 7, 2, 5, 11],
-        99: [3, 7, 2, 5, 11],
-        32: [3, 7, 2, 5, 11],
-        61: [3, 7, 2, 5, 11],
-        50: [3, 7, 2, 5, 11],
-        35: [3, 7, 2, 5, 11],
-        24: [3, 7, 2, 5, 11]
+        'france': ['paris', 'england', 'tokyo', 'wine', 'cheese', 'motor', 'rice', 'robot', 'electricity', 'car'],
+        'japan': ['paris', 'england', 'tokyo', 'wine', 'cheese', 'motor', 'rice', 'robot', 'electricity', 'car'],
+        'bread': ['paris', 'england', 'tokyo', 'wine', 'cheese', 'motor', 'rice', 'robot', 'electricity', 'car'],
+        'farm': ['paris', 'england', 'tokyo', 'wine', 'cheese', 'motor', 'rice', 'robot', 'electricity', 'car'],
+        'factory': ['paris', 'england', 'tokyo', 'wine', 'cheese', 'motor', 'rice', 'robot', 'electricity', 'car'],
+        'bicycle': ['paris', 'england', 'tokyo', 'wine', 'cheese', 'motor', 'rice', 'robot', 'electricity', 'car']
 })
-# analyser = ReduceAnalyser(words=[
-#     40, 44, 80, 88, 
-#     19, 61, 97,
-#     5, 3, 15, 45
-# ])
 
 
-
-epoch = 1000
-number_batch = 1000
-batch_size = 500
+epoch = 10
 running_loss = []
 
 analyser.draw(data, net)
 print("Train")
 for e in range(epoch):
     print(f'Epoch {e}')
-    running_loss = []
-    for b in tqdm(range(number_batch)):
+    for inputs, targets, negatives in tqdm(loader):
+        running_loss = []
         optimizer.zero_grad()
-        inputs, targets, negatives = data.negative_sampling(negatives_size=20)
         input_vectors = net(inputs)
-        target_vectors = net.forward_targets(targets)
-        negative_vectors = net.forward_targets(negatives)
-        loss = criterion(input_vectors, target_vectors, negative_vectors)
-        running_loss.append(loss.item())
-        loss.backward()
+        for idx in range(loader.batch_size):
+            target_vectors = net.forward_targets(targets[idx])
+            negative_vectors = net.forward_targets(negatives[idx])
+            loss = criterion(input_vectors[idx], target_vectors, negative_vectors)
+            running_loss.append(loss.item())
+            loss.backward(retain_graph=True)
         optimizer.step()
-    print(f'Loss {np.mean(running_loss)}')
-    analyser.draw(data, net)
+        print(f'Loss {np.mean(running_loss)}')
+        analyser.draw(data, net)

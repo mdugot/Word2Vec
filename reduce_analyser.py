@@ -7,7 +7,7 @@ class ReduceAnalyser:
     def __init__(self, pca_words, hist_table):
         self.pca = PCA(n_components=2)
         self.words = pca_words
-        self.figure = plt.figure(figsize=(12, 12))
+        self.figure = plt.figure(figsize=(13, 13))
         self.pca_plot = self.figure.add_subplot(4, 4, (1,11))
         self.pca_plot.axis('equal')
         self.hist_plots = []
@@ -35,6 +35,6 @@ class ReduceAnalyser:
             plot.clear()
             plot.bar(np.arange(len(hist)), hist, width=0.5)
             plot.set_xticks(np.arange(len(hist)))
-            plot.set_xticklabels([str(target) for target in targets])
+            plot.set_xticklabels([str(target) for target in targets], rotation=45, fontsize=8)
             plot.set_title(str(word), y=1.0, pad=-14)
         plt.pause(0.01)
