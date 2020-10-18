@@ -48,7 +48,7 @@ class NegativeSamplingLoss(nn.Module):
 print('Create network')
 # data = TestGen(dict_length=100, negatives_size=20)
 data = WikiData()
-loader = NLPLoader(data, shuffle=False, batch_size=100)
+loader = NLPLoader(data, batch_size=100, shuffle=False)
 net = Word2Vec(data.dict_length, latent_space=10)
 net.to('cuda')
 optimizer = optim.Adam(net.parameters(), lr=0.01)
@@ -71,10 +71,10 @@ running_loss = []
 
 analyser.draw(data, net)
 print("Train")
+running_loss = []
+t_idx = 0
 for e in range(epoch):
-    print(f'Epoch {e}')
-    for inputs, targets, negatives in tqdm(loader):
-        running_loss = []
+    for inputs, targets, negatives in loader:
         optimizer.zero_grad()
         input_vectors = net(inputs)
         for idx in range(loader.batch_size):
@@ -84,5 +84,8 @@ for e in range(epoch):
             running_loss.append(loss.item())
             loss.backward(retain_graph=True)
         optimizer.step()
-        print(f'Loss {np.mean(running_loss)}')
-        analyser.draw(data, net)
+        t_idx += 1
+        if t_idx % 20 == 0:
+            print(f'Epoch {e} ({t_idx}/{len(loader)}) - Loss {np.mean(running_loss)}')
+            analyser.draw(data, net)
+            running_loss = []

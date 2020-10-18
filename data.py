@@ -7,13 +7,23 @@ from torch.utils.data.dataloader import default_collate
 
 class NLPLoader(DataLoader):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, collate_fn=self.collate, **kwargs)
- 
+    def __init__(self, data, batch_size, **kwargs):
+        super().__init__(data, batch_size=batch_size, collate_fn=self.collate, **kwargs)
+        self.inputs = torch.zeros([batch_size, data.dict_length], device='cuda', dtype=torch.float)
+        self.context = torch.zeros([batch_size, data.window*2, data.dict_length], device='cuda', dtype=torch.float)
+        self.negatives = torch.zeros([batch_size, data.negatives_size, data.dict_length], device='cuda', dtype=torch.float)
+
     def collate(self, samples):
-        samples = default_collate(samples)
-        samples[0] = samples[0].reshape([self.batch_size, -1])
-        return samples
+        self.inputs.zero_()
+        self.context.zero_()
+        self.negatives.zero_()
+        for idx, (input_word, context_words, negative_words) in enumerate(samples):
+            self.inputs[idx, input_word] = 1.
+            for c_idx, context_word in enumerate(context_words):
+                self.context[idx, c_idx, context_word] = 1.
+            for n_idx, negative_word in enumerate(negative_words):
+                self.negatives[idx, n_idx, negative_word] = 1.
+        return (self.inputs, self.context, self.negatives)
 
 class WikiData(Dataset):
 
@@ -30,10 +40,7 @@ class WikiData(Dataset):
         return len(self.train)
 
     def __getitem__(self, word_idx):
-        current_word = self.train[word_idx]
-        inputs = np.zeros([1, len(self.vocab.itos)])
-        inputs[0, current_word] = 1.
-        targets = []
+        current_word = int(self.train[word_idx])
 
         context = []
         def append_context(c_idx):
@@ -41,12 +48,10 @@ class WikiData(Dataset):
                 return False
             if c_idx >= len(self):
                 return False
-            context_word = self.train[c_idx]
+            context_word = int(self.train[c_idx])
             if self.vocab.itos[context_word] in self.delim:
                 return False
             context.append(context_word)
-            targets.append(np.zeros([self.dict_length]))
-            targets[-1][context_word] = 1.
             return True
 
         if self.vocab.itos[current_word] not in self.delim:
@@ -56,24 +61,20 @@ class WikiData(Dataset):
             for idx in range(1, self.window + 1):
                 if append_context(word_idx + idx) is False:
                     break
-        while len(targets) < self.window*2:
-            targets.append(np.zeros([self.dict_length]))
 
-        all_negs = []
         negatives = []
         for n_idx in range(self.negatives_size):
             neg = np.random.randint(self.dict_length)
-            while neg == word_idx or neg in context or neg in all_negs:
+            while neg == word_idx or neg in context or neg in negatives:
                 neg = np.random.randint(self.dict_length)
             # print(f'-negative : {neg}')
-            all_negs.append(neg)
-            negatives.append(np.zeros([self.dict_length]))
-            negatives[n_idx][neg] = 1.
-        return (
-            torch.tensor(inputs, device='cuda', dtype=torch.float),
-            torch.tensor(targets, device='cuda', dtype=torch.float),
-            torch.tensor(negatives, device='cuda', dtype=torch.float)
-        )
+            negatives.append(neg)
+        return (current_word, context, negatives)
+        # return (
+        #     torch.tensor(inputs, device='cuda', dtype=torch.float),
+        #     torch.tensor(targets, device='cuda', dtype=torch.float),
+        #     torch.tensor(negatives, device='cuda', dtype=torch.float)
+        # )
 
     def __call__(self, words):
         if isinstance(words, list) is False:
