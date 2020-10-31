@@ -9,21 +9,36 @@ class NLPLoader(DataLoader):
 
     def __init__(self, data, batch_size, **kwargs):
         super().__init__(data, batch_size=batch_size, collate_fn=self.collate, **kwargs)
+        self.vocab = data.vocab
         self.inputs = torch.zeros([batch_size, data.dict_length], device='cuda', dtype=torch.float)
         self.context = torch.zeros([batch_size, data.window*2, data.dict_length], device='cuda', dtype=torch.float)
         self.negatives = torch.zeros([batch_size, data.negatives_size, data.dict_length], device='cuda', dtype=torch.float)
+        self.context_weight = torch.zeros([batch_size, data.window*2], device='cuda', dtype=torch.float)
+        self.negatives_weight = torch.zeros([batch_size, data.negatives_size], device='cuda', dtype=torch.float)
+
+    def weight(self, word):
+        if not isinstance(word, str):
+            word = self.vocab.itos[word]
+        freq = self.vocab.freqs[word]
+        if freq < 3:
+            return 1.
+        return 1/np.log(freq)
 
     def collate(self, samples):
         self.inputs.zero_()
         self.context.zero_()
         self.negatives.zero_()
+        self.context_weight.zero_()
+        self.negatives_weight.zero_()
         for idx, (input_word, context_words, negative_words) in enumerate(samples):
             self.inputs[idx, input_word] = 1.
             for c_idx, context_word in enumerate(context_words):
                 self.context[idx, c_idx, context_word] = 1.
+                self.context_weight[idx, c_idx] = self.weight(context_word)
             for n_idx, negative_word in enumerate(negative_words):
                 self.negatives[idx, n_idx, negative_word] = 1.
-        return (self.inputs, self.context, self.negatives)
+                self.negatives_weight[idx, n_idx] = self.weight(negative_word)
+        return (self.inputs, self.context, self.negatives, self.context_weight, self.negatives_weight)
 
 class WikiData(Dataset):
 
