@@ -43,9 +43,9 @@ class NLPLoader(DataLoader):
 
 class WikiData(Dataset):
 
-    def __init__(self, negatives_size=10, window=5, delim=['.', '=', '?', '!']):
+    def __init__(self, negatives_size=30, window=10, delim=['.', '=', '?', '!']):
         self.negatives_size = negatives_size
-        self.train, self.test, self.valid = WikiText2()
+        self.train, self.test, self.valid = WikiText103()
         self.vocab = self.train.vocab
         self.delim = delim
         self.window = window

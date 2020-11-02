@@ -10,3 +10,4 @@ net = Word2Vec(
     writer=None)
 net.to('cuda')
 net.load_state_dict(saved_dict)
+net.eval()

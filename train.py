@@ -11,6 +11,12 @@ from data import NLPLoader, WikiData
 from word2vec import Word2Vec, NegativeSamplingLoss
 
 
+epoch = 30
+log_cycle = 300
+save_cycle = 20000
+latent_space = 100
+learning_rate = 0.1
+batch_size = 100
 
 path = datetime.now().strftime('%b%d_%H-%M-%S')
 save_path = os.path.join('saves', path)
@@ -20,19 +26,17 @@ summary_path = os.path.join('summaries', path)
 
 print('Prepare data')
 data = WikiData()
-loader = NLPLoader(data, batch_size=100, shuffle=False)
+loader = NLPLoader(data, batch_size=batch_size, shuffle=False)
 writer = SummaryWriter(log_dir=summary_path)
 print('Create network')
-net = Word2Vec(data.dict_length, latent_space=100, writer=writer)
+net = Word2Vec(data.dict_length, latent_space=latent_space, writer=writer)
 net.to('cuda')
-optimizer = optim.SGD(net.parameters(), lr=0.05)
+net.train()
+optimizer = optim.SGD(net.parameters(), lr=learning_rate)
 criterion = NegativeSamplingLoss(writer=writer)
 criterion.to('cuda')
 
 
-epoch = 30
-log_cycle = 30
-save_cycle = 20000
 try:
     print("Train")
     step = 0
