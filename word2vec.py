@@ -15,8 +15,16 @@ class Word2Vec(nn.Module):
         return self.encode_inputs(x)
 
     def log(self, step):
-        self.writer.add_histogram('gradient/inputs', self.encode_inputs.weight.grad, step)
-        self.writer.add_histogram('gradient/targets', self.encode_targets.weight.grad, step)
+        grads = self.encode_inputs.weight.grad
+        self.writer.add_histogram(
+            'gradient/inputs',
+            grads.view([-1])[grads.view([-1]).nonzero()],
+            step)
+        grads = self.encode_targets.weight.grad
+        self.writer.add_histogram(
+            'gradient/targets',
+            grads.view([-1])[grads.view([-1]).nonzero()],
+            step)
         self.writer.add_histogram('weight/inputs', self.encode_inputs.weight, step)
         self.writer.add_histogram('weight/targets', self.encode_targets.weight, step)
 

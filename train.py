@@ -13,7 +13,7 @@ from word2vec import Word2Vec, NegativeSamplingLoss
 
 epoch = 30
 log_cycle = 300
-save_cycle = 20000
+save_cycle = 10000
 latent_space = 100
 learning_rate = 0.1
 batch_size = 100
@@ -50,13 +50,13 @@ try:
                 negative_vectors = net.forward_targets(negatives[idx])
                 loss = criterion(input_vectors[idx], target_vectors, negative_vectors, targets_weight[idx], negatives_weight[idx])
                 loss.backward(retain_graph=True)
+            optimizer.step()
             step += 1
             if step % log_cycle == 0:
                 criterion.log(step)
                 net.log(step)
             if step % save_cycle == 0:
                 torch.save(net.state_dict(), os.path.join(save_path, f'{step}'))
-            optimizer.step()
 except KeyboardInterrupt:
     print('\nInterrupt')
 torch.save(net.state_dict(), os.path.join(save_path, f'{step}'))
