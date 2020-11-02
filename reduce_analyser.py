@@ -22,7 +22,7 @@ class ReduceAnalyser:
     def reduce(self, vectors):
         self.pca.fit_transform(vectors)
 
-    def draw(self, data, network):
+    def draw(self, data, network, show=True):
         ls = network.latent_space(data(self.words))
         red = self.pca.fit_transform(ls)
         self.pca_plot.clear()
@@ -37,4 +37,7 @@ class ReduceAnalyser:
             plot.set_xticks(np.arange(len(hist)))
             plot.set_xticklabels([str(target) for target in targets], rotation=45, fontsize=8)
             plot.set_title(str(word), y=1.0, pad=-14)
-        plt.pause(0.01)
+        if show is False:
+            plt.pause(0.01)
+        else:
+            plt.show()

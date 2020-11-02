@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torchtext.experimental.datasets import WikiText2, WikiText103
 from torch.utils.data.dataloader import default_collate
+from tqdm import tqdm
 
 class NLPLoader(DataLoader):
 
@@ -98,3 +99,18 @@ class WikiData(Dataset):
         for idx, word in enumerate(words):
             vectors[idx, self.vocab.stoi[word]] = 1.
         return torch.tensor(vectors, device='cuda', dtype=torch.float)
+
+    def synonyms(self, word, encoder):
+        word = self.vocab.stoi[word]
+        inputs = torch.zeros([self.dict_length], device='cuda', dtype=torch.float)
+        inputs[word] = 1.
+        word_vector = encoder.latent_space(inputs.view([1, -1]))[0]
+        synonyms = {}
+        for other in tqdm(range(self.dict_length)):
+            if other != word:
+                inputs.zero_()
+                inputs[other] = 1.
+                other_vector = encoder.latent_space(inputs.view([1, -1]))[0]
+                distance = np.sum(np.power((word_vector - other_vector), 2))
+                synonyms[self.vocab.itos[other]] = distance
+        return [key for key, value in sorted(synonyms.items(), key= lambda item: -item[1])]
