@@ -8,7 +8,9 @@ class Word2Vec(nn.Module):
     def __init__(self, dict_length, writer, latent_space=7):
         super().__init__()
         self.encode_inputs = nn.Linear(dict_length, latent_space, bias=False)
+        nn.init.normal_(self.encode_inputs.weight)
         self.encode_targets = nn.Linear(dict_length, latent_space, bias=False)
+        nn.init.normal_(self.encode_targets.weight)
         self.writer = writer
 
     def forward(self, x):
