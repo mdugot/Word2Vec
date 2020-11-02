@@ -8,9 +8,9 @@ class Word2Vec(nn.Module):
     def __init__(self, dict_length, writer, latent_space=7):
         super().__init__()
         self.encode_inputs = nn.Linear(dict_length, latent_space, bias=False)
-        nn.init.normal_(self.encode_inputs.weight)
+        # nn.init.normal_(self.encode_inputs.weight)
         self.encode_targets = nn.Linear(dict_length, latent_space, bias=False)
-        nn.init.normal_(self.encode_targets.weight)
+        # nn.init.normal_(self.encode_targets.weight)
         self.writer = writer
 
     def forward(self, x):
@@ -50,8 +50,9 @@ class NegativeSamplingLoss(nn.Module):
         self.running_loss = []
 
     def forward(self, input_vectors, target_vectors, negative_vectors, targets_weight, negatives_weight):
-        target_loss = -torch.sum(torch.log(torch.sigmoid(target_vectors.matmul(input_vectors.T))) * targets_weight)
-        negative_loss = -torch.sum(torch.log(torch.sigmoid(-negative_vectors.matmul(input_vectors.T))) * negatives_weight)
+        epsilon = 1e-10
+        target_loss = -torch.sum(torch.log(torch.sigmoid(target_vectors.matmul(input_vectors.T)) + epsilon) * targets_weight)
+        negative_loss = -torch.sum(torch.log(torch.sigmoid(-negative_vectors.matmul(input_vectors.T)) + epsilon) * negatives_weight)
         loss = target_loss + negative_loss
         self.running_loss.append(loss.item())
         return loss

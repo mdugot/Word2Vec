@@ -13,7 +13,7 @@ from word2vec import Word2Vec, NegativeSamplingLoss
 
 epoch = 30
 log_cycle = 100
-save_cycle = 10000
+save_cycle = 5000
 latent_space = 100
 learning_rate = 0.1
 batch_size = 100
