@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class Word2Vec(nn.Module):
 
     def __init__(self, dict_length, writer, latent_space=7):
+        print('number threads : ', torch.get_num_threads())
         super().__init__()
         self.encode_inputs = nn.Linear(dict_length, latent_space, bias=False)
         # nn.init.normal_(self.encode_inputs.weight)
@@ -35,6 +35,9 @@ class Word2Vec(nn.Module):
 
     def latent_space(self, x):
         return self(x).detach().cpu().numpy()
+
+    def target_latent_space(self, x):
+        return self.forward_targets(x).detach().cpu().numpy()
 
     def hist(self, word, targets):
         word_vector = self(word)

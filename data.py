@@ -8,14 +8,14 @@ from tqdm import tqdm
 
 class NLPLoader(DataLoader):
 
-    def __init__(self, data, batch_size, **kwargs):
+    def __init__(self, data, batch_size, device='cuda', **kwargs):
         super().__init__(data, batch_size=batch_size, collate_fn=self.collate, **kwargs)
         self.vocab = data.vocab
-        self.inputs = torch.zeros([batch_size, data.dict_length], device='cuda', dtype=torch.float)
-        self.context = torch.zeros([batch_size, data.window*2, data.dict_length], device='cuda', dtype=torch.float)
-        self.negatives = torch.zeros([batch_size, data.negatives_size, data.dict_length], device='cuda', dtype=torch.float)
-        self.context_weight = torch.zeros([batch_size, data.window*2], device='cuda', dtype=torch.float)
-        self.negatives_weight = torch.zeros([batch_size, data.negatives_size], device='cuda', dtype=torch.float)
+        self.inputs = torch.zeros([batch_size, data.dict_length], device=self.device, dtype=torch.float)
+        self.context = torch.zeros([batch_size, data.window*2, data.dict_length], device=self.device, dtype=torch.float)
+        self.negatives = torch.zeros([batch_size, data.negatives_size, data.dict_length], device=self.device, dtype=torch.float)
+        self.context_weight = torch.zeros([batch_size, data.window*2], device=self.device, dtype=torch.float)
+        self.negatives_weight = torch.zeros([batch_size, data.negatives_size], device=self.device, dtype=torch.float)
 
     def weight(self, word):
         if not isinstance(word, str):
@@ -86,11 +86,6 @@ class WikiData(Dataset):
             # print(f'-negative : {neg}')
             negatives.append(neg)
         return (current_word, context, negatives)
-        # return (
-        #     torch.tensor(inputs, device='cuda', dtype=torch.float),
-        #     torch.tensor(targets, device='cuda', dtype=torch.float),
-        #     torch.tensor(negatives, device='cuda', dtype=torch.float)
-        # )
 
     def __call__(self, words):
         if isinstance(words, list) is False:
@@ -98,19 +93,38 @@ class WikiData(Dataset):
         vectors = np.zeros([len(words), self.dict_length])
         for idx, word in enumerate(words):
             vectors[idx, self.vocab.stoi[word]] = 1.
-        return torch.tensor(vectors, device='cuda', dtype=torch.float)
+        return torch.tensor(vectors, device=self.device, dtype=torch.float)
 
-    def synonyms(self, word, encoder):
-        word = self.vocab.stoi[word]
-        inputs = torch.zeros([self.dict_length], device='cuda', dtype=torch.float)
-        inputs[word] = 1.
-        word_vector = encoder.latent_space(inputs.view([1, -1]))[0]
+class Dictionary:
+
+    def __init__(self, data, encoder, device='cuda', pickle_dir=None):
+        self.device = device
+        self.code = {}
+        self.target = {}
+        self.freqs = data.vocab.freqs
+        self.itos = data.vocab.itos
+        self.stoi = data.vocab.stoi
+        if pickle_dir is None:
+            with torch.no_grad():
+                inputs = torch.zeros([data.dict_length], device=self.device, dtype=torch.float)
+                for idx in tqdm(range(len(data.vocab.itos))):
+                    inputs.zero_()
+                    inputs[idx] = 1.
+                    self.code[data.vocab.itos[idx]] = encoder.latent_space(inputs.view([1, -1]))[0]
+                    self.target[data.vocab.itos[idx]] = encoder.target_latent_space(inputs.view([1, -1]))[0]
+
+    def synonyms(self, word, min_freqs=0):
         synonyms = {}
-        for other in tqdm(range(self.dict_length)):
-            if other != word:
-                inputs.zero_()
-                inputs[other] = 1.
-                other_vector = encoder.latent_space(inputs.view([1, -1]))[0]
-                distance = np.sum(np.power((word_vector - other_vector), 2))
-                synonyms[self.vocab.itos[other]] = distance
-        return [key for key, value in sorted(synonyms.items(), key= lambda item: -item[1])]
+        for other in tqdm(self.code.keys()):
+            if other != word and self.freqs[other] >= min_freqs:
+                distance = np.sum(np.power((self.code[word] - self.code[other]), 2))
+                synonyms[other] = distance
+        return [key for key, value in sorted(synonyms.items(), key= lambda item: item[1])]
+
+    def context(self, word, min_freqs=0):
+        context = {}
+        for other in tqdm(self.code.keys()):
+            if other != word and self.freqs[other] >= min_freqs:
+                distance = np.dot(self.code[word], self.code[other])
+                context[other] = distance
+        return [key for key, value in sorted(context.items(), key= lambda item: -item[1])]
