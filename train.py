@@ -22,8 +22,8 @@ learning_rate = 0.03
 batch_size = 100
 
 path = datetime.now().strftime('%b%d_%H-%M-%S')
-restore_path = 'Nov17_11-40-39'
-restore_step = 323908
+restore_path = 'Nov18_07-22-53'
+restore_step = 0 #427240
 torch.manual_seed(restore_step)
 
 save_path = os.path.join('saves', path)
@@ -41,8 +41,9 @@ net.to('cuda')
 net.train()
 
 
-saved_dict = torch.load(f'saves/{restore_path}/{restore_step}')
-net.load_state_dict(saved_dict)
+if restore_step > 0:
+    saved_dict = torch.load(f'saves/{restore_path}/{restore_step}')
+    net.load_state_dict(saved_dict)
 
 optimizer = optim.SGD(net.parameters(), lr=learning_rate)
 criterion = NegativeSamplingLoss(writer=writer)
@@ -61,8 +62,7 @@ try:
                 target_vectors = net.forward_targets(targets[idx])
                 negative_vectors = net.forward_targets(negatives[idx])
                 loss = criterion(input_vectors[idx], target_vectors, negative_vectors, targets_weight[idx], negatives_weight[idx])
-                # loss.backward(retain_graph=True)  # TODO detach instead of retain_graph
-                loss.backward()
+                loss.backward(retain_graph=True)
             optimizer.step()
             step += 1
             if step % log_cycle == 0:

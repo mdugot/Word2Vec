@@ -10,6 +10,7 @@ class NLPLoader(DataLoader):
 
     def __init__(self, data, batch_size, device='cuda', **kwargs):
         super().__init__(data, batch_size=batch_size, collate_fn=self.collate, **kwargs)
+        self.device = device
         self.vocab = data.vocab
         self.inputs = torch.zeros([batch_size, data.dict_length], device=self.device, dtype=torch.float)
         self.context = torch.zeros([batch_size, data.window*2, data.dict_length], device=self.device, dtype=torch.float)
@@ -43,9 +44,9 @@ class NLPLoader(DataLoader):
 
 class WikiData(Dataset):
 
-    def __init__(self, negatives_size=30, window=10, delim=['.', '=', '?', '!']):
+    def __init__(self, negatives_size=15, window=5, delim=['.', '=', '?', '!']):
         self.negatives_size = negatives_size
-        self.train, self.test, self.valid = WikiText103()
+        self.train, self.test, self.valid = WikiText103() # Wikitext2()
         self.vocab = self.train.vocab
         self.delim = delim
         self.window = window
@@ -114,17 +115,25 @@ class Dictionary:
                     self.target[data.vocab.itos[idx]] = encoder.target_latent_space(inputs.view([1, -1]))[0]
 
     def synonyms(self, word, min_freqs=0):
+        if isinstance(word, str):
+            word_code = self.code[word]
+        else:
+            word_code = word
         synonyms = {}
         for other in tqdm(self.code.keys()):
             if other != word and self.freqs[other] >= min_freqs:
-                distance = np.sum(np.power((self.code[word] - self.code[other]), 2))
+                distance = np.sum(np.power((word_code - self.code[other]), 2))
                 synonyms[other] = distance
         return [key for key, value in sorted(synonyms.items(), key= lambda item: item[1])]
 
     def context(self, word, min_freqs=0):
+        if isinstance(word, str):
+            word_code = self.code[word]
+        else:
+            word_code = word
         context = {}
         for other in tqdm(self.code.keys()):
             if other != word and self.freqs[other] >= min_freqs:
-                distance = np.dot(self.code[word], self.code[other])
+                distance = np.dot(word, self.code[other])
                 context[other] = distance
         return [key for key, value in sorted(context.items(), key= lambda item: -item[1])]
