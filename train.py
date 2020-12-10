@@ -26,10 +26,10 @@ restore_path = 'Nov18_07-22-53'
 restore_step = 0 #427240
 torch.manual_seed(restore_step)
 
-save_path = os.path.join('saves', path)
+save_path = os.path.join('/hdd/word_units/saves', path)
 if not os.path.exists(save_path):
     os.makedirs(save_path)
-summary_path = os.path.join('summaries', path)
+summary_path = os.path.join('/hdd/word_units/summaries', path)
 
 print('Prepare data')
 data = WikiData()
