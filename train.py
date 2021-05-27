@@ -5,7 +5,6 @@ from datetime import datetime
 
 from tqdm import tqdm
 import torch
-
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import torch.optim as optim
@@ -14,12 +13,12 @@ from data import NLPLoader, WikiData
 from word2vec import Word2Vec, NegativeSamplingLoss
 
 
-epoch = 30
+epoch = 1
 log_cycle = 100
 save_cycle = 5000
 latent_space = 100
 learning_rate = 0.03
-batch_size = 100
+batch_size = 20
 
 path = datetime.now().strftime('%b%d_%H-%M-%S')
 restore_path = 'Nov18_07-22-53'
@@ -33,7 +32,7 @@ summary_path = os.path.join('/hdd/word_units/summaries', path)
 
 print('Prepare data')
 data = WikiData()
-loader = NLPLoader(data, batch_size=batch_size, shuffle=True)
+loader = NLPLoader(data, batch_size=batch_size, shuffle=True, num_workers=0)
 writer = SummaryWriter(log_dir=summary_path)
 print('Create network')
 net = Word2Vec(data.dict_length, latent_space=latent_space, writer=writer)
