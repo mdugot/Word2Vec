@@ -82,6 +82,7 @@ array([ 0.1479291 , -0.09920859, -0.35985562,  0.03662522, -0.31170434,
 ```
 
 The method `similar_words` can be used to get words with a similar semantic according to the model.
+The optional argument `nwords` can be used to define the number of similar words to return.
 
 ```
 >>> encoder.similar_words("clarinet")
@@ -92,6 +93,15 @@ The method `similar_words` can be used to get words with a similar semantic acco
 ['software', 'graphics', 'electronic', 'apple', 'multiplayer', '3d', 'internet', 'mode', 'ds', 'virtual']
 >>> encoder.similar_words("skin")
 ['flesh', 'ear', 'teeth', 'soft', 'ears', 'feathers', 'bones', 'eyes', 'darker', 'legs']
+>>> encoder.similar_words("france", nwords=1)
+['germany']
+```
+
+This method can also be used with an arbitrary embedding passed has argument.
+
+```
+>>> encoder.similar_words((encoder("prince") + encoder("girl")), nwords=1)
+['princess']
 ```
 
 The method `plot` can be used to visualize the high dimensional embedding of a list of words with TSNE.
