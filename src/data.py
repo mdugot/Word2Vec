@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -5,6 +7,8 @@ from torch.utils.data import DataLoader
 from torchtext.experimental.datasets import WikiText2, WikiText103
 from torch.utils.data.dataloader import default_collate
 from tqdm import tqdm
+
+from .config import CONFIG
 
 class NLPLoader(DataLoader):
 
@@ -36,17 +40,16 @@ class NLPLoader(DataLoader):
 
 class WikiData(Dataset):
 
-    def __init__(self, negatives_size=15, window=5, delim=['.', '=', '?', '!'], min_freq=40, unknown='<unk>'):
-    # def __init__(self, negatives_size=15, window=5, delim=['.', '=', '?', '!'], min_freq=10, unknown='<unk>'):
+    def __init__(self):
         
-        self.unknown = '<unk>'
-        self.min_freq = min_freq
-        self.negatives_size = negatives_size
+        self.min_freq = CONFIG.min_freq
+        self.negatives_size = CONFIG.negatives_size
+        if not os.path.exists("./.data"):
+            os.makedirs("./.data")
         text, _, _ = WikiText103()
-        # text, _, _ = WikiText2()
         self.vocab = text.vocab
-        self.delim = delim
-        self.window = window
+        self.delim = ['.', '=', '?', '!']
+        self.window = CONFIG.window
         self.trainable_words = {}
         self.trainable_itos = {}
         self.weights = {}
@@ -123,44 +126,3 @@ class WikiData(Dataset):
         for idx, word in enumerate(words):
             vectors[idx, self.str_to_id(word)] = 1.
         return torch.tensor(vectors, device=self.device, dtype=torch.float)
-
-
-class Dictionary:
-
-    def __init__(self, data, encoder, device='cuda', pickle_dir=None):
-        self.device = device
-        self.code = {}
-        self.target = {}
-        self.data = data
-        if pickle_dir is None:
-            with torch.no_grad():
-                inputs = torch.zeros([data.dict_length], device=self.device, dtype=torch.float)
-                for idx in tqdm(range(data.dict_length)):
-                    inputs.zero_()
-                    inputs[idx] = 1.
-                    self.code[data.trainable_itos[idx]] = encoder.latent_space(inputs.view([1, -1]))[0]
-                    self.target[data.trainable_itos[idx]] = encoder.target_latent_space(inputs.view([1, -1]))[0]
-
-    def synonyms(self, word, min_freqs=0):
-        if isinstance(word, str):
-            word_code = self.code[word]
-        else:
-            word_code = word
-        synonyms = {}
-        for other in tqdm(self.code.keys()):
-            if other != word and self.data.vocab.freqs[other] >= min_freqs:
-                distance = np.sum(np.power((word_code - self.code[other]), 2))
-                synonyms[other] = distance
-        return [key for key, value in sorted(synonyms.items(), key= lambda item: item[1])]
-
-    def context(self, word, min_freqs=0):
-        if isinstance(word, str):
-            word_code = self.code[word]
-        else:
-            word_code = word
-        context = {}
-        for other in tqdm(self.code.keys()):
-            if other != word and self.data.vocab.freqs[other] >= min_freqs:
-                distance = np.dot(word_code, self.target[other])
-                context[other] = distance
-        return [key for key, value in sorted(context.items(), key= lambda item: -item[1])]

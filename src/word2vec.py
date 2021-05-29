@@ -15,7 +15,7 @@ class Word2Vec(nn.Module):
     def forward(self, x):
         return self.encode_inputs(x)
 
-    def log(self, step):
+    def get_state(self):
         return {
             'gradients/inputs': self.encode_inputs.weight.grad,
             'gradients/target': self.encode_targets.weight.grad,

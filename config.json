@@ -1,5 +1,8 @@
 {
     "epoch": 3,
+    "negatives_size": 15,
+    "window": 5,
+    "min_freq": 40,
     "log_cycle": 500,
     "save_cycle": 5000,
     "latent_space": 100,
@@ -7,7 +10,7 @@
     "learning_rate_decay": 0.5,
     "batch_size": 20,
     "restore": null,
-    "save_path": "/path/where/to/save/checkpoints",
-    "log_path": "/path/where/to/save/tensorboard/summaries",
+    "save_path": "./checkpoints",
+    "log_path": "./summaries",
     "device": "cuda"
 }

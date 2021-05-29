@@ -57,8 +57,8 @@ try:
                 recorder.dump_loss(step)
                 recorder.record_network(step, net.get_state())
             if step % CONFIG.save_cycle == 0:
-                torch.save(net.state_dict(), os.path.join(save_path, f'{step}'))
+                torch.save(net.state_dict(), os.path.join(save_path, f'{step}.ckpt'))
         scheduler.step()
 except KeyboardInterrupt:
     print('\nInterrupt')
-torch.save(net.state_dict(), os.path.join(save_path, f'{step}'))
+torch.save(net.state_dict(), os.path.join(save_path, f'{step}.ckpt'))

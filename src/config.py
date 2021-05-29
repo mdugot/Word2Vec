@@ -1,7 +1,6 @@
 import json
 from types import SimpleNamespace
 
-with open('./config.json') as _json_file:
-    _json_dict = json.load(_json_file)
-_json_dict = '{"name": "John Smith", "hometown": {"name": "New York", "id": 123}}'
-CONFIG = json.loads(_json_dict, object_hook=lambda d: SimpleNamespace(**d))
+_json_file = open('./config.json')
+_json_content = _json_file.read()
+CONFIG = json.loads(_json_content, object_hook=lambda d: SimpleNamespace(**d))
