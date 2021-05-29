@@ -1,0 +1,13 @@
+{
+    "epoch": 3,
+    "log_cycle": 500,
+    "save_cycle": 5000,
+    "latent_space": 100,
+    "learning_rate": 0.03,
+    "learning_rate_decay": 0.5,
+    "batch_size": 20,
+    "restore": null,
+    "save_path": "/path/where/to/save/checkpoints",
+    "log_path": "/path/where/to/save/tensorboard/summaries",
+    "device": "cuda"
+}

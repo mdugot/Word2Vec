@@ -37,22 +37,21 @@ class NLPLoader(DataLoader):
 class WikiData(Dataset):
 
     def __init__(self, negatives_size=15, window=5, delim=['.', '=', '?', '!'], min_freq=40, unknown='<unk>'):
+    # def __init__(self, negatives_size=15, window=5, delim=['.', '=', '?', '!'], min_freq=10, unknown='<unk>'):
         
         self.unknown = '<unk>'
         self.min_freq = min_freq
         self.negatives_size = negatives_size
-        self.train, self.test, self.valid = WikiText103()
-        self.vocab = self.train.vocab
+        text, _, _ = WikiText103()
+        # text, _, _ = WikiText2()
+        self.vocab = text.vocab
         self.delim = delim
         self.window = window
         self.trainable_words = {}
         self.trainable_itos = {}
-        self.trainable_words[self.vocab.stoi[self.unknown]] = 0
-        self.trainable_itos[0] = self.unknown
         self.weights = {}
-        self.dict_length = 1
+        self.dict_length = 0
         print("Make trainable words dictionary...")
-        unk_count = 0
         for word, freq in tqdm(self.vocab.freqs.items()):
             if freq >= self.min_freq:
                 word_id = self.dict_length
@@ -60,18 +59,27 @@ class WikiData(Dataset):
                 self.trainable_itos[word_id] = word
                 self.weights[word_id] = 1/np.log((freq - self.min_freq)*0.01 + np.e)
                 self.dict_length += 1
+        self.trainable_text = []
+        print("Remove untrainable words from text...")
+        ltext = len(text)
+        unk_count = 0
+        for idx in tqdm(range(ltext)):
+            original_id = int(text[idx])
+            if original_id in self.trainable_words:
+                new_id = self.trainable_words[original_id]
+                self.trainable_text.append(new_id)
             else:
                 unk_count += 1
-                self.trainable_words[self.vocab.stoi[word]] = 0
-        self.weights[0] = 1/np.log((unk_count - self.min_freq)*0.01 + np.e)
+
+        print(f"trainable text : {len(self.trainable_text)}/{ltext}")
         print(f"trainable words : {self.dict_length}/{len(self.vocab.freqs)}")
-        print(f"Unknown words : {unk_count}/{len(self)}")
+        print(f"Unknown words : {unk_count}/{ltext}")
 
     def __len__(self):
-        return len(self.train)
+        return len(self.trainable_text)
 
     def idx_to_id(self, word_idx):
-        return self.trainable_words[int(self.train[word_idx])]
+        return self.trainable_text[word_idx]
 
     def str_to_id(self, word):
         return self.trainable_words[int(self.vocab.stoi[word])]
@@ -116,44 +124,43 @@ class WikiData(Dataset):
             vectors[idx, self.str_to_id(word)] = 1.
         return torch.tensor(vectors, device=self.device, dtype=torch.float)
 
-# class Dictionary:
-# 
-#     def __init__(self, data, encoder, device='cuda', pickle_dir=None):
-#         self.device = device
-#         self.code = {}
-#         self.target = {}
-#         self.freqs = data.vocab.freqs
-#         self.itos = data.vocab.itos
-#         self.stoi = data.vocab.stoi
-#         if pickle_dir is None:
-#             with torch.no_grad():
-#                 inputs = torch.zeros([data.dict_length], device=self.device, dtype=torch.float)
-#                 for idx in tqdm(range(len(data.vocab.itos))):
-#                     inputs.zero_()
-#                     inputs[idx] = 1.
-#                     self.code[data.vocab.itos[idx]] = encoder.latent_space(inputs.view([1, -1]))[0]
-#                     self.target[data.vocab.itos[idx]] = encoder.target_latent_space(inputs.view([1, -1]))[0]
-# 
-#     def synonyms(self, word, min_freqs=0):
-#         if isinstance(word, str):
-#             word_code = self.code[word]
-#         else:
-#             word_code = word
-#         synonyms = {}
-#         for other in tqdm(self.code.keys()):
-#             if other != word and self.freqs[other] >= min_freqs:
-#                 distance = np.sum(np.power((word_code - self.code[other]), 2))
-#                 synonyms[other] = distance
-#         return [key for key, value in sorted(synonyms.items(), key= lambda item: item[1])]
-# 
-#     def context(self, word, min_freqs=0):
-#         if isinstance(word, str):
-#             word_code = self.code[word]
-#         else:
-#             word_code = word
-#         context = {}
-#         for other in tqdm(self.code.keys()):
-#             if other != word and self.freqs[other] >= min_freqs:
-#                 distance = np.dot(word, self.code[other])
-#                 context[other] = distance
-#         return [key for key, value in sorted(context.items(), key= lambda item: -item[1])]
+
+class Dictionary:
+
+    def __init__(self, data, encoder, device='cuda', pickle_dir=None):
+        self.device = device
+        self.code = {}
+        self.target = {}
+        self.data = data
+        if pickle_dir is None:
+            with torch.no_grad():
+                inputs = torch.zeros([data.dict_length], device=self.device, dtype=torch.float)
+                for idx in tqdm(range(data.dict_length)):
+                    inputs.zero_()
+                    inputs[idx] = 1.
+                    self.code[data.trainable_itos[idx]] = encoder.latent_space(inputs.view([1, -1]))[0]
+                    self.target[data.trainable_itos[idx]] = encoder.target_latent_space(inputs.view([1, -1]))[0]
+
+    def synonyms(self, word, min_freqs=0):
+        if isinstance(word, str):
+            word_code = self.code[word]
+        else:
+            word_code = word
+        synonyms = {}
+        for other in tqdm(self.code.keys()):
+            if other != word and self.data.vocab.freqs[other] >= min_freqs:
+                distance = np.sum(np.power((word_code - self.code[other]), 2))
+                synonyms[other] = distance
+        return [key for key, value in sorted(synonyms.items(), key= lambda item: item[1])]
+
+    def context(self, word, min_freqs=0):
+        if isinstance(word, str):
+            word_code = self.code[word]
+        else:
+            word_code = word
+        context = {}
+        for other in tqdm(self.code.keys()):
+            if other != word and self.data.vocab.freqs[other] >= min_freqs:
+                distance = np.dot(word_code, self.target[other])
+                context[other] = distance
+        return [key for key, value in sorted(context.items(), key= lambda item: -item[1])]
